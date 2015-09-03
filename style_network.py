@@ -132,7 +132,7 @@ class StyleNetwork(Model):
         for l, layer in reversed(list(enumerate(self.layers))):
             if self.subject_weights[l] > 0:
                 diff = x_feats[l] - self.subject_feats[l]
-                norm = ca.sum(ca.abs(diff)) + 1e-8
+                norm = ca.sum(ca.fabs(diff)) + 1e-8
                 weight = float(self.subject_weights[l]) / norm
                 grad += diff * weight
                 loss += 0.5*weight*ca.sum(diff**2)
