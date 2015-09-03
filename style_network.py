@@ -141,7 +141,7 @@ class StyleNetwork(Model):
                 n_channels = diff.shape[0]
                 x_feat = ca.reshape(x_feats[l], (n_channels, -1))
                 style_grad = ca.reshape(ca.dot(diff, x_feat), x_feats[l].shape)
-                norm = ca.sum(ca.abs(style_grad))
+                norm = ca.sum(ca.fabs(style_grad))
                 weight = float(self.style_weights[l]) / norm
                 style_grad *= weight
                 grad += style_grad
