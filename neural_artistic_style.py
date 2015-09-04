@@ -105,8 +105,7 @@ def run():
     if args.init is None:
         init_img = subject_img
     else:
-        init_img = imread(args.init)
-    init_img = init_img - pixel_mean
+        init_img = imread(args.init) - pixel_mean
     noise = np.random.normal(size=init_img.shape, scale=np.std(init_img))
     init_img = init_img * (1 - args.init_noise) + noise * args.init_noise
 
