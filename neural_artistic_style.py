@@ -12,10 +12,17 @@ from style_network import StyleNetwork
 
 def weight_tuple(s):
     try:
-        conv_idx, weight = map(int, s.split(','))
+        conv_idx, weight = map(float, s.split(','))
         return conv_idx, weight
     except:
-        raise argparse.ArgumentTypeError('weights must by "conv_idx,weight"')
+        raise argparse.ArgumentTypeError('weights must by "int,float"')
+
+
+def float_range(x):
+    x = float(x)
+    if x < 0.0 or x > 1.0:
+        raise argparse.ArgumentTypeError("%r not in range [0, 1]" % x)
+    return x
 
 
 def weight_array(weights):
@@ -47,47 +54,68 @@ def to_rgb(img):
 
 def run():
     parser = argparse.ArgumentParser(
-        description='Neural artistic style.',
+        description='Neural artistic style. Generates an image by combining '
+                    'the subject from one image and the style from another.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument('--subject', required=True, type=str,
-                        help='subject image')
+                        help='Subject image.')
     parser.add_argument('--style', required=True, type=str,
-                        help='style image')
+                        help='Style image.')
     parser.add_argument('--output', default='out.png', type=str,
-                        help='output image')
+                        help='Output image.')
+    parser.add_argument('--init', default=None, type=str,
+                        help='Initial image. Subject is chosen as default.')
+    parser.add_argument('--init-noise', default=0.0, type=float_range,
+                        help='Weight between [0, 1] to adjust the noise level '
+                             'in the initial image.')
+    parser.add_argument('--random-seed', default=None, type=int,
+                        help='Random state.')
     parser.add_argument('--animation', default='animation', type=str,
-                        help='output animation directory')
+                        help='Output animation directory.')
     parser.add_argument('--iterations', default=500, type=int,
-                        help='Number of iterations')
-    parser.add_argument('--learn-rate', default=5.0, type=float,
-                        help='Learning rate')
+                        help='Number of iterations to run.')
+    parser.add_argument('--learn-rate', default=2.0, type=float,
+                        help='Learning rate.')
+    parser.add_argument('--smoothness', type=float, default=2e-7,
+                        help='Weight of smoothing scheme.')
     parser.add_argument('--subject-weights', nargs='*', type=weight_tuple,
                         default=[(9, 1)],
-                        help='list of subject weights (conv_idx,weight)')
+                        help='List of subject weights (conv_idx,weight).')
     parser.add_argument('--style-weights', nargs='*', type=weight_tuple,
                         default=[(0, 1), (2, 1), (4, 1), (8, 1), (12, 1)],
-                        help='list of style weights (conv_idx,weight)')
+                        help='List of style weights (conv_idx,weight).')
     parser.add_argument('--subject-ratio', type=float, default=2e-2,
-                        help='weight of subject relative to style')
+                        help='Weight of subject relative to style.')
+    parser.add_argument('--pool-method', default='avg', type=str,
+                        choices=['max', 'avg'], help='Subsampling scheme.')
     parser.add_argument('--vgg19', default='imagenet-vgg-verydeep-19.mat',
-                        type=str, help='VGG-19 .mat file')
+                        type=str, help='VGG-19 .mat file.')
     args = parser.parse_args()
 
-    layers, img_mean = vgg19_net(args.vgg19, pool_method='avg')
+    if args.random_seed is not None:
+        np.random.seed(args.random_seed)
+
+    layers, img_mean = vgg19_net(args.vgg19, pool_method=args.pool_method)
 
     # Inputs
     pixel_mean = np.mean(img_mean, axis=(0, 1))
-    style_img = imread(args.style)
-    subject_img = imread(args.subject)
-    style_img -= pixel_mean
-    subject_img -= pixel_mean
+    style_img = imread(args.style) - pixel_mean
+    subject_img = imread(args.subject) - pixel_mean
+    if args.init is None:
+        init_img = subject_img
+    else:
+        init_img = imread(args.init)
+    init_img = init_img - pixel_mean
+    noise = np.random.normal(size=init_img.shape, scale=np.std(init_img))
+    init_img = init_img * (1 - args.init_noise) + noise * args.init_noise
 
     # Setup network
     subject_weights = weight_array(args.subject_weights) * args.subject_ratio
     style_weights = weight_array(args.style_weights)
-    net = StyleNetwork(layers, to_bc01(subject_img), to_bc01(style_img),
-                       subject_weights, style_weights)
+    net = StyleNetwork(layers, to_bc01(init_img), to_bc01(subject_img),
+                       to_bc01(style_img), subject_weights, style_weights,
+                       args.smoothness)
 
     # Repaint image
     def net_img():

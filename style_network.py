@@ -48,15 +48,18 @@ class StyleNetwork(Model):
 
     Differences:
     - The gradients for both subject and style are normalized. The original
-      gradient summatino scheme seemed sensitive to changes in image size.
+      method uses pre-normalized convolutional features.
+    - The Gram matrices are scaled wrt. # of pixels. The original method is
+      sensitive to different image sizes between subject and style.
+    - Additional smoothing term for visually better results.
 
     References:
     [1]: A Neural Algorithm of Artistic Style; Leon A. Gatys, Alexander S.
          Ecker, Matthias Bethge; arXiv:1508.06576; 08/2015
     """
 
-    def __init__(self, layers, subject_img, style_img, subject_weights,
-                 style_weights):
+    def __init__(self, layers, init_img, subject_img, style_img,
+                 subject_weights, style_weights, smoothness=0.0):
 
         # Map weights (in convolution indices) to layer indices
         self.subject_weights = np.zeros(len(layers))
@@ -80,8 +83,8 @@ class StyleNetwork(Model):
                        for l in layers]
 
         # Setup network
-        x_shape = subject_img.shape
-        self.x = Parameter(subject_img)
+        x_shape = init_img.shape
+        self.x = Parameter(init_img)
         self.x._setup(x_shape)
         for layer in self.layers:
             layer._setup(x_shape)
@@ -104,6 +107,12 @@ class StyleNetwork(Model):
                 n_pixels_style = np.prod(next_style.shape[2:])
                 scale = (n_pixels_subject / float(n_pixels_style))
                 self.style_grams[l] = gram * scale
+
+        self.tv_weight = smoothness
+        kernel = np.array([[0, 1, 0], [1, -4, 1], [0, 1, 0]], dtype=dp.float_)
+        kernel /= np.sum(np.abs(kernel))
+        self.tv_kernel = ca.array(kernel[np.newaxis, np.newaxis, ...])
+        self.tv_conv = ca.nnet.ConvBC01((1, 1), (1, 1))
 
     @property
     def image(self):
@@ -147,5 +156,12 @@ class StyleNetwork(Model):
                 grad += style_grad
                 loss += 0.25*weight*ca.sum(diff**2)
             grad = layer.bprop(grad)
+
+        if self.tv_weight > 0:
+            x = ca.reshape(self.x.array, (3, 1) + grad.shape[2:])
+            tv = self.tv_conv.fprop(x, self.tv_kernel)
+            tv *= self.tv_weight
+            grad -= ca.reshape(tv, grad.shape)
+
         ca.copyto(self.x.grad_array, grad)
         return loss
