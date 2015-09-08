@@ -41,7 +41,7 @@ def imread(path):
 
 def imsave(path, img):
     img = np.clip(img, 0, 255).astype(np.uint8)
-    return scipy.misc.imsave(path, img)
+    scipy.misc.imsave(path, img)
 
 
 def to_bc01(img):
