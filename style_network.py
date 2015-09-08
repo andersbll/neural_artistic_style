@@ -126,14 +126,10 @@ class StyleNetwork(Model):
         # Forward propagation
         next_x = self.x.array
         x_feats = [None]*len(self.layers)
-        x_grams = [None]*len(self.layers)
         for l, layer in enumerate(self.layers):
             next_x = layer.fprop(next_x)
-            if self.subject_weights[l] > 0:
+            if self.subject_weights[l] > 0 or self.style_weights[l] > 0:
                 x_feats[l] = next_x
-            if self.style_weights[l] > 0:
-                x_feats[l] = next_x
-                x_grams[l] = gram_matrix(next_x)
 
         # Backward propagation
         grad = ca.zeros_like(next_x)
@@ -146,7 +142,7 @@ class StyleNetwork(Model):
                 grad += diff * weight
                 loss += 0.5*weight*ca.sum(diff**2)
             if self.style_weights[l] > 0:
-                diff = x_grams[l] - self.style_grams[l]
+                diff = gram_matrix(x_feats[l]) - self.style_grams[l]
                 n_channels = diff.shape[0]
                 x_feat = ca.reshape(x_feats[l], (n_channels, -1))
                 style_grad = ca.reshape(ca.dot(diff, x_feat), x_feats[l].shape)
