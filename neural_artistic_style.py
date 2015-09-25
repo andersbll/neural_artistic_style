@@ -77,7 +77,7 @@ def run():
                         help='Number of iterations to run.')
     parser.add_argument('--learn-rate', default=2.0, type=float,
                         help='Learning rate.')
-    parser.add_argument('--smoothness', type=float, default=2e-7,
+    parser.add_argument('--smoothness', type=float, default=5e-8,
                         help='Weight of smoothing scheme.')
     parser.add_argument('--subject-weights', nargs='*', type=weight_tuple,
                         default=[(9, 1)],
@@ -106,7 +106,7 @@ def run():
         init_img = subject_img
     else:
         init_img = imread(args.init) - pixel_mean
-    noise = np.random.normal(size=init_img.shape, scale=np.std(init_img))
+    noise = np.random.normal(size=init_img.shape, scale=np.std(init_img)*1e-1)
     init_img = init_img * (1 - args.init_noise) + noise * args.init_noise
 
     # Setup network
