@@ -85,9 +85,9 @@ class StyleNetwork(Model):
         # Setup network
         x_shape = init_img.shape
         self.x = Parameter(init_img)
-        self.x._setup(x_shape)
+        self.x.setup(x_shape)
         for layer in self.layers:
-            layer._setup(x_shape)
+            layer.setup(x_shape)
             x_shape = layer.y_shape(x_shape)
 
         # Precompute subject features and style Gram matrices
@@ -119,10 +119,10 @@ class StyleNetwork(Model):
         return np.array(self.x.array)
 
     @property
-    def _params(self):
+    def params(self):
         return [self.x]
 
-    def _update(self):
+    def update(self):
         # Forward propagation
         next_x = self.x.array
         x_feats = [None]*len(self.layers)
