@@ -6,7 +6,7 @@ import numpy as np
 import scipy.misc
 import deeppy as dp
 
-from matconvnet import vgg19_net
+from matconvnet import vgg_net
 from style_network import StyleNetwork
 
 
@@ -89,17 +89,16 @@ def run():
                         help='Weight of subject relative to style.')
     parser.add_argument('--pool-method', default='avg', type=str,
                         choices=['max', 'avg'], help='Subsampling scheme.')
-    parser.add_argument('--vgg19', default='imagenet-vgg-verydeep-19.mat',
-                        type=str, help='VGG-19 .mat file.')
+    parser.add_argument('--network', default='imagenet-vgg-verydeep-19.mat',
+                        type=str, help='Network in MatConvNet format).')
     args = parser.parse_args()
 
     if args.random_seed is not None:
         np.random.seed(args.random_seed)
 
-    layers, img_mean = vgg19_net(args.vgg19, pool_method=args.pool_method)
+    layers, pixel_mean = vgg_net(args.network, pool_method=args.pool_method)
 
     # Inputs
-    pixel_mean = np.mean(img_mean, axis=(0, 1))
     style_img = imread(args.style) - pixel_mean
     subject_img = imread(args.subject) - pixel_mean
     if args.init is None:
